@@ -6,7 +6,6 @@
 
 import tensorflow as tf
 from tensorflow import keras
-from sklearn.preprocessing import OneHotEncoder
 tf.enable_eager_execution()
 import numpy as np
 import os
@@ -133,6 +132,7 @@ model.fit(dataset, epochs=epochs)
 
 # In[ ]:
 
+model.save('shakes.h5')
 
 
 
