@@ -6,7 +6,6 @@
 
 import tensorflow as tf
 from tensorflow import keras
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import unicodedata
 import re
@@ -215,11 +214,11 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
                                  encoder=encoder,
                                  decoder=decoder)
 
-
+checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 # In[32]:
 
 
-epochs=10
+epochs=200
 
 for epoch in range(epochs):
     hidden=encoder.initialize_hidden_state()
