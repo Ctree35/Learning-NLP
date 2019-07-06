@@ -12,6 +12,7 @@ import unicodedata
 import re
 import numpy as np
 import os
+from nltk.translate.bleu_score import sentence_bleu
 import time
 
 # In[18]:
@@ -255,10 +256,24 @@ def translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, m
     result, sent = evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
     print('Input: {}'.format(sent))
     print('Predicted translation: {}'.format(result))
+    return result
 
 
 checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
-while 1:
-    sentence = input()
-    translate(sentence,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ)
+ref1=[['It','s','really','cold','here','.'],['It','s','cold','here','.']]
+ref2=[['this','is','my','life','.'],['This','is','my','life','.']]
+ref3=[['are','you','still','at','home','?'],['Are','they','still','at','home','?']]
+ref4=[['try','to','find','out','.'],['Have','a','try','.']]
+sentence1 = u'hace mucho frio aqui.'
+sentence2 = u'esta es mi vida.'
+sentence3 = u'todavia estan en casa?'
+sentence4 = u'trata de averiguarlo.'
+can1=translate(sentence1,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ)
+can2=translate(sentence2,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ)
+can3=translate(sentence3,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ)
+can4=translate(sentence4,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ)
+print(sentence_bleu(ref1,can1))
+print(sentence_bleu(ref2,can2))
+print(sentence_bleu(ref3,can3))
+print(sentence_bleu(ref4,can4))
