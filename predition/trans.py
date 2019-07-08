@@ -117,12 +117,6 @@ input_tensor, target_tensor, inp_lang, targ_lang, max_length_inp, max_length_tar
 input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = train_test_split(input_tensor,
                                                                                                 target_tensor,
                                                                                                 test_size=0.2)
-
-# In[25]:
-
-
-len(input_tensor_train), len(target_tensor_train), len(input_tensor_val), len(target_tensor_val)
-
 # In[26]:
 
 
@@ -284,8 +278,11 @@ checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 buf_siz=len(input_tensor_val)
 total_score=0
 for i in range(buf_siz):
-    ref=np.expand_dims(target_tensor_val[i], axis=0)
-    sentence=' '.join(input_tensor_val[i])
+    ref=[targ_lang.idx2word[j] for j in target_tensor_val[i]]
+    ref=np.expand_dims(ref, axis=0)
+    sentence=''
+    for j in range(len(input_tensor_val[i])):
+        sentence+=inp_lang.idx2word[input_tensor_val[i][j]]+' '
     can=translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
     can=can.split(' ')
     can=tf.keras.preprocessing.sequence.pad_sequences(can,maxlen=max_length_targ,padding='post')
