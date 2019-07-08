@@ -5,14 +5,12 @@
 
 
 import tensorflow as tf
-from tensorflow import keras
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from nltk.translate.bleu_score import sentence_bleu
 import unicodedata
 import re
 import numpy as np
 import os
-import time
 
 
 # In[18]:
@@ -105,20 +103,16 @@ def load_dataset(path, num_examples):
 # In[23]:
 
 
-num_examples=30000
+num_examples=100000
 input_tensor, target_tensor, inp_lang, targ_lang, max_length_inp, max_length_targ = load_dataset(path_to_file, num_examples)
 
 
 # In[24]:
 
 
-input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = train_test_split(input_tensor, target_tensor, test_size=0.2)
+input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = train_test_split(input_tensor, target_tensor, test_size=0.1)
 
 
-# In[25]:
-
-
-len(input_tensor_train), len(target_tensor_train), len(input_tensor_val), len(target_tensor_val)
 
 
 # In[26]:
@@ -143,16 +137,12 @@ class Encoder(tf.keras.Model):
         self.batch_sz=batch_sz
         self.enc_units=enc_units
         self.embedding=tf.keras.layers.Embedding(vocab_size,embedding_dim)
-        self.gru=tf.keras.layers.GRU(enc_units,return_sequences=True,return_state=True)
+        self.gru=tf.keras.layers.Bidirectional(tf.keras.layers.CuDNNGRU(enc_units,return_sequences=True,return_state=True))
     
-    def call(self,x,hidden):
+    def call(self,x):
         x=self.embedding(x)
-        out,state=self.gru(x, initial_state=hidden)
-        return out,state
-    
-    def initialize_hidden_state(self):
-        return tf.zeros((self.batch_sz, self.enc_units))
-
+        out,state_fw,state_bw=self.gru(x)
+        return out,state_fw,state_bw
 
 # In[28]:
 
@@ -181,17 +171,15 @@ class Decoder(tf.keras.Model):
         out,state=self.gru(x)
         out=tf.reshape(out,(-1,self.dec_units))
         x=self.fc(out)
-        return x,state,attention_weights
-    
-    def initialize_hidden_state(self):
-        return tf.zeros((self.batch_sz, self.dec_units))
+        return x,state
+
 
 
 # In[29]:
 
 
 encoder=Encoder(vocab_inp_size,embedding_dim,units,batch_size)
-decoder=Decoder(vocab_tar_size,embedding_dim,units,batch_size)
+decoder=Decoder(vocab_tar_size,embedding_dim,2 * units,batch_size)
 
 
 # In[30]:
@@ -222,17 +210,16 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
 epochs=10
 
 for epoch in range(epochs):
-    hidden=encoder.initialize_hidden_state()
     total_loss=0
     for (batch,(inp,targ)) in enumerate(dataset):
         loss=0
         with tf.GradientTape() as tape:
-            enc_out,enc_hidden=encoder(inp,hidden)
-            dec_hidden=enc_hidden
+            enc_out,enc_hidden_fw,enc_hidden_bw=encoder(inp)
+            dec_hidden=tf.concat([enc_hidden_fw,enc_hidden_bw],axis=2)
             dec_input=tf.expand_dims([targ_lang.word2idx['<start>']]*batch_size,1)
             
             for t in range(1,max_length_targ):
-                pred, dec_hidden,_=decoder(dec_input,dec_hidden,enc_out)
+                pred, dec_hidden=decoder(dec_input,dec_hidden,enc_out)
                 loss+=loss_function(targ[:,t],pred)
                 dec_input=tf.expand_dims(tf.argmax(pred,axis=1),1)
             batch_loss=loss/max_length_targ
@@ -255,25 +242,27 @@ for epoch in range(epochs):
 # In[ ]:
 
 
-def evaluate(sentene,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ):
+def evaluate(sentence,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ):
     sentence = preprocess_sentence(sentence)
     inputs = [inp_lang.word2idx[i] for i in sentence.split(' ')]
     inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs], maxlen=max_length_inp, padding='post')
     inputs = tf.convert_to_tensor(inputs)
     
-    result=''
-    
-    hidden = encoder.initialize_hidden_state()
-    enc_out, enc_hidden=encoder(inputs,hidden)
+    result='<start> '
+
+    enc_out, enc_hidden_fw, enc_hidden_bw = encoder(inputs)
+    enc_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=2)
     dec_hidden=enc_hidden
     dec_input = tf.expand_dims([targ_lang.word2idx['<start>']], 1)
     
     for t in range(max_length_targ):
         pred, dec_hidden=decoder(dec_input,dec_hidden,enc_out)
-        pred_id=tf,argmax(pred,axis=1)
-        result+=targ_lang.idx2word[pred_id]+' '
+        pred_id=tf.argmax(pred,axis=1)
         if targ_lang.idx2word[pred_id]=='<end>':
+            result+=targ_lang.idx2word[pred_id]
             return result,sentence
+        else:
+            result+=targ_lang.idx2word[pred_id]+' '
         dec_input=tf.expand_dims([pred_id], 1)
     return result,sentence
 
@@ -282,7 +271,24 @@ def evaluate(sentene,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_lengt
 
 
 def translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ):
-    result,sentence=evaluate(sentene,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ)
+    result,sentence=evaluate(sentence,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ)
     print('Input: {}'.format(sentence))
     print('Predicted translation: {}'.format(result))
+    return result
+
+buf_siz=len(input_tensor_val)
+total_score=0
+for i in range(buf_siz):
+    ref=np.expand_dims(target_tensor_val[i], axis=0)
+    can=translate(input_tensor_val[i], encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
+    can=can.split(' ')
+    can=tf.keras.preprocessing.sequence.pad_sequences(can,maxlen=max_length_targ,padding='post')
+    b_sen=sentence_bleu(ref, can)
+    print(b_sen)
+    total_score+=b_sen
+
+total_score=total_score / buf_siz
+print("Total BLEU scoce is: {}".format(total_score))
+
+
 
