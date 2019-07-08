@@ -283,6 +283,7 @@ for i in range(buf_siz):
     sentence=''
     for j in range(len(input_tensor_val[i])):
         sentence+=inp_lang.idx2word[input_tensor_val[i][j]]+' '
+    print(sentence)
     can=translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
     can=can.split(' ')
     can=tf.keras.preprocessing.sequence.pad_sequences(can,maxlen=max_length_targ,padding='post')
