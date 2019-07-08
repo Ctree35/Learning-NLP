@@ -215,6 +215,7 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
 
 def evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ):
     sentence = preprocess_sentence(sentence)
+    print(sentence)
     inputs = [inp_lang.word2idx[i] for i in sentence.split(' ') ]
     inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs], maxlen=max_length_inp, padding='post')
     inputs = tf.convert_to_tensor(inputs)
