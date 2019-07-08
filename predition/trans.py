@@ -261,18 +261,22 @@ def translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, m
 
 checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
-ref1=[['It','s','really','cold','here','.'],['It','s','cold','here','.']]
-ref2=[['this','is','my','life','.'],['This','is','my','life','.']]
+ref1=[['it','s','very','cold','here','.']]
+ref2=[['this','is','my','life','.'],['this','is','my','life','.']]
 ref3=[['are','you','still','at','home','?'],['Are','they','still','at','home','?']]
 ref4=[['try','to','find','out','.'],['Have','a','try','.']]
 sentence1 = u'hace mucho frio aqui.'
 sentence2 = u'esta es mi vida.'
 sentence3 = u'todavia estan en casa?'
 sentence4 = u'trata de averiguarlo.'
-can1=translate(sentence1,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ)
-can2=translate(sentence2,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ)
-can3=translate(sentence3,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ)
-can4=translate(sentence4,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ)
+can1=translate(sentence1,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ).split(' ')[:-2]
+can2=translate(sentence2,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ).split(' ')[:-2]
+can3=translate(sentence3,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ).split(' ')[:-2]
+can4=translate(sentence4,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ).split(' ')[:-2]
+print(can1)
+print(can2)
+print(can3)
+print(can4)
 print(sentence_bleu(ref1,can1))
 print(sentence_bleu(ref2,can2))
 print(sentence_bleu(ref3,can3))
