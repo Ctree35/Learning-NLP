@@ -174,7 +174,6 @@ class Decoder(tf.keras.Model):
         return x,state
 
 
-
 # In[29]:
 
 
@@ -275,6 +274,7 @@ def translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, m
     print('Input: {}'.format(sentence))
     print('Predicted translation: {}'.format(result))
     return result
+
 
 buf_siz=len(input_tensor_val)
 total_score=0
