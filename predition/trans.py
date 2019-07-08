@@ -285,7 +285,8 @@ buf_siz=len(input_tensor_val)
 total_score=0
 for i in range(buf_siz):
     ref=np.expand_dims(target_tensor_val[i], axis=0)
-    can=translate(input_tensor_val[i], encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
+    sentence=' '.join(input_tensor_val[i])
+    can=translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
     can=can.split(' ')
     can=tf.keras.preprocessing.sequence.pad_sequences(can,maxlen=max_length_targ,padding='post')
     b_sen=sentence_bleu(ref, can)
