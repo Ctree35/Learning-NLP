@@ -202,7 +202,7 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
                                  encoder=encoder,
                                  decoder=decoder)
 
-
+checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 # In[32]:
 
 
@@ -210,6 +210,7 @@ epochs=10
 
 for epoch in range(epochs):
     total_loss=0
+    batch_avg=0
     for (batch,(inp,targ)) in enumerate(dataset):
         loss=0
         with tf.GradientTape() as tape:
@@ -223,6 +224,7 @@ for epoch in range(epochs):
                 dec_input=tf.expand_dims(tf.argmax(pred,axis=1),1)
             batch_loss=loss/max_length_targ
             total_loss+=batch_loss
+            batch_avg+=batch_loss
             variables=encoder.variables+decoder.variables
             grad=tape.gradient(loss,variables)
             optimizer.apply_gradients(zip(grad,variables))
@@ -230,9 +232,9 @@ for epoch in range(epochs):
             if batch % 100 == 0:
                 print('Epoch {} Batch {} Loss {:.4f}'.format(epoch + 1,
                                                          batch,
-                                                         batch_loss.numpy()))
-    if (epoch + 1) % 2 == 0:
-        checkpoint.save(file_prefix = checkpoint_prefix)
+                                                         batch_avg / 100))
+                batch_avg=0
+    checkpoint.save(file_prefix = checkpoint_prefix)
     
     print('Epoch {} Loss {:.4f}'.format(epoch + 1,
                                         total_loss / num_batch))
