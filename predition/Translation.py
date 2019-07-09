@@ -215,7 +215,7 @@ for epoch in range(epochs):
         loss=0
         with tf.GradientTape() as tape:
             enc_out,enc_hidden_fw,enc_hidden_bw=encoder(inp)
-            dec_hidden=tf.concat([enc_hidden_fw,enc_hidden_bw],axis=2)
+            dec_hidden=tf.concat([enc_hidden_fw,enc_hidden_bw],axis=-1)
             dec_input=tf.expand_dims([targ_lang.word2idx['<start>']]*batch_size,1)
             
             for t in range(1,max_length_targ):
