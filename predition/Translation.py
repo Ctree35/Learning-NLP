@@ -243,28 +243,38 @@ for epoch in range(epochs):
 # In[ ]:
 
 
+beam_size=10
+
 def evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ):
     sentence = preprocess_sentence(sentence)
     inputs = [inp_lang.word2idx[i] for i in sentence.split(' ')]
     inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs], maxlen=max_length_inp, padding='post')
     inputs = tf.convert_to_tensor(inputs)
 
-    result = '<start> '
-
     enc_out, enc_hidden_fw, enc_hidden_bw = encoder(inputs)
     enc_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=-1)
-    dec_hidden = enc_hidden
-    dec_input = tf.expand_dims([targ_lang.word2idx['<start>']], 1)
 
+    # Beam Search
+    sequences = [[list(), 1.0, enc_hidden]]
+    sequences[0][0] += [targ_lang.word2idx['<start>']]
     for t in range(max_length_targ):
-        pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
-        pred_id = tf.argmax(pred, axis=1)
-        if targ_lang.idx2word[pred_id.numpy()[0]] == '<end>':
-            result += targ_lang.idx2word[pred_id.numpy()[0]]
-            return result, sentence
-        else:
-            result += targ_lang.idx2word[pred_id.numpy()[0]] + ' '
-        dec_input = tf.expand_dims([pred_id.numpy()[0]], 1)
+        all_candidates = list()
+        for i in range(len(sequences)):
+            seq, score, dec_hidden = sequences[i]
+            if seq[-1] == targ_lang.word2idx['<end>']:
+                all_candidates.append(sequences[i])
+                continue
+            dec_input = tf.expand_dims([seq[-1]], 1)
+            pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
+            pred_id = tf.argmax(pred, axis=1)
+            candidate = [seq+[pred_id.numpy()[0]], score * (-np.log(pred[0][pred_id.numpy()[0]])), dec_hidden]
+            all_candidates.append(candidate)
+        ordered = sorted(all_candidates, key=lambda x: x[1])
+        sequences = ordered[:beam_size]
+    result=''
+    for idx in sequences[0][0]:
+        if targ_lang.idx2word[idx] not in ['<start>', '<end>']:
+            result += targ_lang.idx2word[idx] + ' '
     return result, sentence
 
 
@@ -281,19 +291,18 @@ def translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, m
 buf_siz=len(input_tensor_val)
 total_score=0
 for i in range(buf_siz):
-    ref=[targ_lang.idx2word[j] for j in target_tensor_val[i]]
+    ref=[targ_lang.idx2word[j] for j in target_tensor_val[i]
+         if targ_lang.idx2word[j] not in ['<start>', '<end>', '<pad>']]
     ref=np.expand_dims(ref, axis=0)
     sentence=''
     for j in range(len(input_tensor_val[i])):
-        if inp_lang.idx2word[input_tensor_val[i][j]]!='<start>' and \
-                inp_lang.idx2word[input_tensor_val[i][j]]!='<end>' and \
-                inp_lang.idx2word[input_tensor_val[i][j]]!='<pad>':
+        if inp_lang.idx2word[input_tensor_val[i][j]] not in ['<start>', '<end>', '<pad>']:
             sentence+=inp_lang.idx2word[input_tensor_val[i][j]]+' '
     can=translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
-    can=can.strip()
-    can=[targ_lang.word2idx[j] for j in can.split(' ')]
-    can=tf.keras.preprocessing.sequence.pad_sequences([can],maxlen=max_length_targ,padding='post')
-    can=[targ_lang.idx2word[j] for j in can[0]]
+    can=can.strip().split(' ')
+    # can=[targ_lang.word2idx[j] for j in can.split(' ')]
+    # can=tf.keras.preprocessing.sequence.pad_sequences([can],maxlen=max_length_targ,padding='post')
+    # can=[targ_lang.idx2word[j] for j in can[0]]
     b_sen=sentence_bleu(ref, can)
     print(b_sen)
     total_score+=b_sen
