@@ -222,12 +222,12 @@ def evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
     for t in range(max_length_targ):
         pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
         pred_id = tf.argmax(pred, axis=1)
-        if targ_lang.idx2word[pred_id] == '<end>':
-            result += targ_lang.idx2word[pred_id]
+        if targ_lang.idx2word[pred_id.numpy()[0]] == '<end>':
+            result += targ_lang.idx2word[pred_id.numpy()[0]]
             return result, sentence
         else:
-            result += targ_lang.idx2word[pred_id] + ' '
-        dec_input = tf.expand_dims([pred_id], 1)
+            result += targ_lang.idx2word[pred_id.numpy()[0]] + ' '
+        dec_input = tf.expand_dims([pred_id.numpy()[0]], 1)
     return result, sentence
 
 

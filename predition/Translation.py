@@ -243,29 +243,29 @@ for epoch in range(epochs):
 # In[ ]:
 
 
-def evaluate(sentence,encoder,decoder,inp_lang,targ_lang,max_length_inp,max_length_targ):
+def evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ):
     sentence = preprocess_sentence(sentence)
     inputs = [inp_lang.word2idx[i] for i in sentence.split(' ')]
     inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs], maxlen=max_length_inp, padding='post')
     inputs = tf.convert_to_tensor(inputs)
-    
-    result='<start> '
+
+    result = '<start> '
 
     enc_out, enc_hidden_fw, enc_hidden_bw = encoder(inputs)
     enc_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=-1)
-    dec_hidden=enc_hidden
+    dec_hidden = enc_hidden
     dec_input = tf.expand_dims([targ_lang.word2idx['<start>']], 1)
-    
+
     for t in range(max_length_targ):
-        pred, dec_hidden=decoder(dec_input,dec_hidden,enc_out)
-        pred_id=tf.argmax(pred,axis=1)
-        if targ_lang.idx2word[pred_id]=='<end>':
-            result+=targ_lang.idx2word[pred_id]
-            return result,sentence
+        pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
+        pred_id = tf.argmax(pred, axis=1)
+        if targ_lang.idx2word[pred_id.numpy()[0]] == '<end>':
+            result += targ_lang.idx2word[pred_id.numpy()[0]]
+            return result, sentence
         else:
-            result+=targ_lang.idx2word[pred_id]+' '
-        dec_input=tf.expand_dims([pred_id], 1)
-    return result,sentence
+            result += targ_lang.idx2word[pred_id.numpy()[0]] + ' '
+        dec_input = tf.expand_dims([pred_id.numpy()[0]], 1)
+    return result, sentence
 
 
 # In[ ]:
