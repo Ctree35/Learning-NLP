@@ -215,7 +215,7 @@ def evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
     result = '<start> '
 
     enc_out, enc_hidden_fw, enc_hidden_bw = encoder(inputs)
-    enc_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=2)
+    enc_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=-1)
     dec_hidden = enc_hidden
     dec_input = tf.expand_dims([targ_lang.word2idx['<start>']], 1)
 
