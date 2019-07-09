@@ -285,12 +285,15 @@ for i in range(buf_siz):
     ref=np.expand_dims(ref, axis=0)
     sentence=''
     for j in range(len(input_tensor_val[i])):
-        if not inp_lang.idx2word[input_tensor_val[i][j]]=='<start>' or '<end>' or '<pad>':
+        if inp_lang.idx2word[input_tensor_val[i][j]]!='<start>' and \
+                inp_lang.idx2word[input_tensor_val[i][j]]!='<end>' and \
+                inp_lang.idx2word[input_tensor_val[i][j]]!='<pad>':
             sentence+=inp_lang.idx2word[input_tensor_val[i][j]]+' '
-    # print(sentence)
     can=translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
-    can=can.split(' ')
-    can=tf.keras.preprocessing.sequence.pad_sequences(can,maxlen=max_length_targ,padding='post')
+    can=can.strip()
+    can=[targ_lang.word2idx[j] for j in can.split(' ')]
+    can=tf.keras.preprocessing.sequence.pad_sequences([can],maxlen=max_length_targ,padding='post')
+    can=[targ_lang.idx2word[j] for j in can[0]]
     b_sen=sentence_bleu(ref, can)
     print(b_sen)
     total_score+=b_sen

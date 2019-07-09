@@ -216,7 +216,7 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
 def evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ):
     sentence = preprocess_sentence(sentence)
     # print(sentence)
-    inputs = [inp_lang.word2idx[i] for i in sentence.split(' ') ]
+    inputs = [inp_lang.word2idx[i] for i in sentence.split(' ')]
     inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs], maxlen=max_length_inp, padding='post')
     inputs = tf.convert_to_tensor(inputs)
     # inputs = tf.tile(inputs,[batch_size,1])
@@ -288,8 +288,10 @@ for i in range(buf_siz):
                 inp_lang.idx2word[input_tensor_val[i][j]]!='<pad>':
             sentence+=inp_lang.idx2word[input_tensor_val[i][j]]+' '
     can=translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
-    can=can.split(' ')
-    can=tf.keras.preprocessing.sequence.pad_sequences(can,maxlen=max_length_targ,padding='post')
+    can=can.strip()
+    can=[targ_lang.word2idx[j] for j in can.split(' ')]
+    can=tf.keras.preprocessing.sequence.pad_sequences([can],maxlen=max_length_targ,padding='post')
+    can=[targ_lang.idx2word[j] for j in can[0]]
     b_sen=sentence_bleu(ref, can)
     print(b_sen)
     total_score+=b_sen
