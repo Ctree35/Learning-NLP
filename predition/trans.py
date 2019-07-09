@@ -5,15 +5,12 @@
 
 
 import tensorflow as tf
-from tensorflow import keras
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from nltk.translate.bleu_score import sentence_bleu
 import unicodedata
 import re
 import numpy as np
 import os
-from nltk.translate.bleu_score import sentence_bleu
-import time
 
 # In[18]:
 
@@ -107,7 +104,7 @@ def load_dataset(path, num_examples):
 # In[23]:
 
 
-num_examples = 30000
+num_examples = 100000
 input_tensor, target_tensor, inp_lang, targ_lang, max_length_inp, max_length_targ = load_dataset(path_to_file,
                                                                                                  num_examples)
 
@@ -116,7 +113,8 @@ input_tensor, target_tensor, inp_lang, targ_lang, max_length_inp, max_length_tar
 
 input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = train_test_split(input_tensor,
                                                                                                 target_tensor,
-                                                                                                test_size=0.2)
+                                                                                                test_size=0.1)
+
 # In[26]:
 
 
@@ -140,15 +138,13 @@ class Encoder(tf.keras.Model):
         self.batch_sz = batch_sz
         self.enc_units = enc_units
         self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim)
-        self.gru = tf.keras.layers.GRU(enc_units, return_sequences=True, return_state=True)
+        self.gru = tf.keras.layers.Bidirectional(
+            tf.keras.layers.GRU(enc_units, return_sequences=True, return_state=True))
 
-    def call(self, x, hidden):
+    def call(self, x):
         x = self.embedding(x)
-        out, state = self.gru(x, initial_state=hidden)
-        return out, state
-
-    def initialize_hidden_state(self):
-        return tf.zeros((self.batch_sz, self.enc_units))
+        out, state_fw, state_bw = self.gru(x)
+        return out, state_fw, state_bw
 
 
 # In[28]:
@@ -178,17 +174,14 @@ class Decoder(tf.keras.Model):
         out, state = self.gru(x)
         out = tf.reshape(out, (-1, self.dec_units))
         x = self.fc(out)
-        return x, state, attention_weights
-
-    def initialize_hidden_state(self):
-        return tf.zeros((self.batch_sz, self.dec_units))
+        return x, state
 
 
 # In[29]:
 
 
 encoder = Encoder(vocab_inp_size, embedding_dim, units, batch_size)
-decoder = Decoder(vocab_tar_size, embedding_dim, units, batch_size)
+decoder = Decoder(vocab_tar_size, embedding_dim, 2 * units, batch_size)
 
 # In[30]:
 
