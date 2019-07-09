@@ -208,32 +208,26 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
 
 def evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ):
     sentence = preprocess_sentence(sentence)
-    # print(sentence)
     inputs = [inp_lang.word2idx[i] for i in sentence.split(' ')]
     inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs], maxlen=max_length_inp, padding='post')
     inputs = tf.convert_to_tensor(inputs)
-    # inputs = tf.tile(inputs,[batch_size,1])
-    # print(inputs.shape)
 
-    result = ''
+    result = '<start> '
 
-    hidden = [tf.zeros((1, units))]
-    enc_out, enc_hidden = encoder(inputs, hidden)
+    enc_out, enc_hidden_fw, enc_hidden_bw = encoder(inputs)
+    enc_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=2)
     dec_hidden = enc_hidden
-    dec_input = tf.expand_dims([targ_lang.word2idx['<start>']], 0)
-    # print(dec_input.shape)
-    # dec_input = tf.tile(dec_input,[batch_size,1])
-    # print(dec_input.shape)
+    dec_input = tf.expand_dims([targ_lang.word2idx['<start>']], 1)
 
     for t in range(max_length_targ):
-        pred, dec_hidden, _ = decoder(dec_input, dec_hidden, enc_out)
+        pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
         pred_id = tf.argmax(pred, axis=1)
-        # print(pred_id.numpy().shape)
-        result += targ_lang.idx2word[pred_id.numpy()[0]] + ' '
-        if targ_lang.idx2word[pred_id.numpy()[0]] == '<end>':
+        if targ_lang.idx2word[pred_id] == '<end>':
+            result += targ_lang.idx2word[pred_id]
             return result, sentence
-        dec_input = tf.expand_dims([pred_id[0]], 0)
-        # dec_input = tf.tile(dec_input, [batch_size, 1])
+        else:
+            result += targ_lang.idx2word[pred_id] + ' '
+        dec_input = tf.expand_dims([pred_id], 1)
     return result, sentence
 
 
@@ -241,8 +235,8 @@ def evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
 
 
 def translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ):
-    result, sent = evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
-    print('Input: {}'.format(sent))
+    result, sentence = evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
+    print('Input: {}'.format(sentence))
     print('Predicted translation: {}'.format(result))
     return result
 
