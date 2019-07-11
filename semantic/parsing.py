@@ -108,7 +108,7 @@ input_tensor, target_tensor, inp_lang, targ_lang, max_length_inp, max_length_tar
 input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = train_test_split(input_tensor, target_tensor, test_size=0.1)
 
 # Config
-is_training = True
+is_training = False
 is_eval = True
 buffer_size=len(input_tensor_train)
 batch_size=64
