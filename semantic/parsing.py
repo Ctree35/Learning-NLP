@@ -169,8 +169,9 @@ optimizer = tf.train.AdamOptimizer()
 
 
 def loss_function(real, pred):
+    mask = 1 - np.equal(real, 0)
     loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=real,
-                                                          logits=pred)
+                                                          logits=pred) * mask
     return tf.reduce_mean(loss)
 
 
