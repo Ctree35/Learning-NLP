@@ -210,6 +210,7 @@ if is_training:
                                             total_loss / num_batch))
 
 
+
 # Evaluation
 def evaluate(question, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ):
     question = tf.expand_dims(question, axis=0)
@@ -283,7 +284,7 @@ def print_result(a):
     print(result)
 
 
-if is_eval:
+def calc_acc():
     buf_siz = len(input_tensor_val)
     total_acc = 0
     for i in range(buf_siz):
@@ -298,3 +299,7 @@ if is_eval:
         total_acc += acc
     total_acc = total_acc / buf_siz
     print("Total Accuracy is: {:.4f}".format(total_acc))
+
+
+if is_eval:
+    calc_acc()
