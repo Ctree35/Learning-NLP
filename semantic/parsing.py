@@ -234,7 +234,7 @@ def evaluate(question, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
                 candidate = [seq+[j], new_score, dec_hidden]
                 all_candidates.append(candidate)
         ordered = sorted(all_candidates, key=lambda x: x[1])
-        sequences = ordered[-beam_size:]
+        sequences = ordered[:beam_size]
     final = sorted(final, key=lambda x: x[1])
     return final[0][0]
 
