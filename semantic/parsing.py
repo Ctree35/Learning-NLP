@@ -23,7 +23,7 @@ def preprocess_quest(w):
     w = re.sub(r',', ' ', w)
     w = re.sub(r'\s+', ' ', w)
     w = w.strip()
-    w = '<start> '+ w + ' <end>'
+    w = '<start> ' + w + ' <end>'
     # print(w)
     return w
 
@@ -108,6 +108,8 @@ input_tensor, target_tensor, inp_lang, targ_lang, max_length_inp, max_length_tar
 input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = train_test_split(input_tensor, target_tensor, test_size=0.1)
 
 # Config
+is_training = True
+is_eval = True
 buffer_size=len(input_tensor_train)
 batch_size=64
 num_batch=buffer_size // batch_size
@@ -181,29 +183,30 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
 checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
 # Train
-epochs = 10
+if is_training:
+    epochs = 10
 
-for epoch in range(epochs):
-    total_loss = 0
-    for (batch, (inp, targ)) in enumerate(dataset):
-        loss = 0
-        with tf.GradientTape() as tape:
-            enc_out, enc_hidden_fw, enc_hidden_bw = encoder(inp)
-            dec_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=-1)
-            dec_input = tf.expand_dims([targ_lang.word2idx['<start>']] * batch_size, 1)
+    for epoch in range(epochs):
+        total_loss = 0
+        for (batch, (inp, targ)) in enumerate(dataset):
+            loss = 0
+            with tf.GradientTape() as tape:
+                enc_out, enc_hidden_fw, enc_hidden_bw = encoder(inp)
+                dec_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=-1)
+                dec_input = tf.expand_dims([targ_lang.word2idx['<start>']] * batch_size, 1)
 
-            for t in range(1, max_length_targ):
-                pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
-                loss += loss_function(targ[:, t], pred)
-                dec_input = tf.expand_dims(tf.argmax(pred, axis=1), 1)
-            batch_loss = loss / max_length_targ
-            total_loss += batch_loss
-            variables = encoder.variables + decoder.variables
-            grad = tape.gradient(loss, variables)
-            optimizer.apply_gradients(zip(grad, variables))
-    checkpoint.save(file_prefix = checkpoint_prefix)
-    print('Epoch {} Loss {:.4f}'.format(epoch + 1,
-                                        total_loss / num_batch))
+                for t in range(1, max_length_targ):
+                    pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
+                    loss += loss_function(targ[:, t], pred)
+                    dec_input = tf.expand_dims(tf.argmax(pred, axis=1), 1)
+                batch_loss = loss / max_length_targ
+                total_loss += batch_loss
+                variables = encoder.variables + decoder.variables
+                grad = tape.gradient(loss, variables)
+                optimizer.apply_gradients(zip(grad, variables))
+        checkpoint.save(file_prefix=checkpoint_prefix)
+        print('Epoch {} Loss {:.4f}'.format(epoch + 1,
+                                            total_loss / num_batch))
 
 
 # Evaluation
@@ -221,8 +224,8 @@ def evaluate(question, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
         if beam_size <= 0:
             break
         all_candidates = list()
-        min_score = -1e10
-        min_local_score = -1e10
+        min_score = 1e10
+        min_local_score = 1e10
         for i in range(len(sequences)):
             seq, score, dec_hidden = sequences[i]
             if seq[-1] == targ_lang.word2idx['<end>']:
@@ -234,9 +237,9 @@ def evaluate(question, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
             for j in range(vocab_tar_size):
                 local_score = -np.log(pred[0][j].numpy()+1e-12)
                 new_score = score + local_score
-                if new_score > 2 * min_score:
+                if new_score > 3 * min_score:
                     continue
-                if local_score > 2 * min_local_score:
+                if local_score > 3 * min_local_score:
                     continue
                 if new_score < min_score:
                     min_score = new_score
@@ -255,14 +258,14 @@ def accuracy(pred, label):
         return 1
     return 0
 
-
-buf_siz = len(input_tensor_val)
-total_acc = 0
-for i in range(buf_siz):
-    predict = evaluate(input_tensor_val[i], encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
-    while len(predict) < max_length_targ:
-        predict.append(0)
-    acc = accuracy(predict, target_tensor_val[i])
-    total_acc += acc
-total_acc = total_acc / buf_siz
-print("Total Accuracy is: {:.4f}".format(total_acc))
+if is_eval:
+    buf_siz = len(input_tensor_val)
+    total_acc = 0
+    for i in range(buf_siz):
+        predict = evaluate(input_tensor_val[i], encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
+        while len(predict) < max_length_targ:
+            predict.append(0)
+        acc = accuracy(predict, target_tensor_val[i])
+        total_acc += acc
+    total_acc = total_acc / buf_siz
+    print("Total Accuracy is: {:.4f}".format(total_acc))
