@@ -49,6 +49,7 @@ def preprocess_answer(w):
     # print(w)
     return w
 
+
 def create_dataset(path):
     lines = open(path,'r').readlines()
     pairs = list()
@@ -57,8 +58,6 @@ def create_dataset(path):
         pairs.append([preprocess_quest(que), preprocess_answer(par)])
     return pairs
 
-
-print(create_dataset(DATA_PATH))
 
 class LanguageIndex():
     def __init__(self, lang):
@@ -110,11 +109,12 @@ input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = t
 # Config
 is_training = True
 is_eval = True
+use_beam = False
 buffer_size=len(input_tensor_train)
 batch_size=64
 num_batch=buffer_size // batch_size
 embedding_dim=256
-units=1024
+units=128
 vocab_inp_size=len(inp_lang.word2idx)
 vocab_tar_size=len(targ_lang.word2idx)
 dataset=tf.data.Dataset.from_tensor_slices((input_tensor_train,target_tensor_train)).shuffle(buffer_size).batch(batch_size,drop_remainder=True)
@@ -184,7 +184,7 @@ checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
 # Train
 if is_training:
-    epochs = 10
+    epochs = 256
 
     for epoch in range(epochs):
         total_loss = 0
@@ -216,47 +216,68 @@ def evaluate(question, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
     enc_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=-1)
 
     # Beam Search
-    beam_size = 5
-    sequences = [[list(), 0, enc_hidden]]
-    sequences[0][0] += [targ_lang.word2idx['<start>']]
-    final = [[list(), 0, enc_hidden]]
-    for t in range(max_length_targ):
-        if beam_size <= 0:
-            break
-        all_candidates = list()
-        min_score = 1e10
-        min_local_score = 1e10
-        for i in range(len(sequences)):
-            seq, score, dec_hidden = sequences[i]
-            if seq[-1] == targ_lang.word2idx['<end>']:
-                final.append(sequences[i])
-                beam_size -= 1
-                continue
-            dec_input = tf.expand_dims([seq[-1]], 1)
+    if use_beam:
+        beam_size = 5
+        sequences = [[list(), 0, enc_hidden]]
+        sequences[0][0] += [targ_lang.word2idx['<start>']]
+        final = [[list(), 0, enc_hidden]]
+        for t in range(max_length_targ):
+            if beam_size <= 0:
+                break
+            all_candidates = list()
+            min_score = 1e10
+            min_local_score = 1e10
+            for i in range(len(sequences)):
+                seq, score, dec_hidden = sequences[i]
+                if seq[-1] == targ_lang.word2idx['<end>']:
+                    final.append(sequences[i])
+                    beam_size -= 1
+                    continue
+                dec_input = tf.expand_dims([seq[-1]], 1)
+                pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
+                for j in range(vocab_tar_size):
+                    local_score = -np.log(pred[0][j].numpy()+1e-12)
+                    new_score = score + local_score
+                    if new_score > 3 * min_score:
+                        continue
+                    if local_score > 3 * min_local_score:
+                        continue
+                    if new_score < min_score:
+                        min_score = new_score
+                    if local_score < min_local_score:
+                        min_local_score = local_score
+                    candidate = [seq+[j], new_score, dec_hidden]
+                    all_candidates.append(candidate)
+            ordered = sorted(all_candidates, key=lambda x: x[1])
+            sequences = ordered[:beam_size]
+        final = sorted(final, key=lambda x: x[1])
+        return final[0][0]
+    else:
+        dec_hidden = enc_hidden
+        dec_input = tf.expand_dims([targ_lang.word2idx['<start>']], 1)
+        result=list()
+        for t in range(max_length_targ):
             pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
-            for j in range(vocab_tar_size):
-                local_score = -np.log(pred[0][j].numpy()+1e-12)
-                new_score = score + local_score
-                if new_score > 3 * min_score:
-                    continue
-                if local_score > 3 * min_local_score:
-                    continue
-                if new_score < min_score:
-                    min_score = new_score
-                if local_score < min_local_score:
-                    min_local_score = local_score
-                candidate = [seq+[j], new_score, dec_hidden]
-                all_candidates.append(candidate)
-        ordered = sorted(all_candidates, key=lambda x: x[1])
-        sequences = ordered[:beam_size]
-    final = sorted(final, key=lambda x: x[1])
-    return final[0][0]
+            pred_id = tf.argmax(pred[0]).numpy()
+            result += [pred_id]
+            if targ_lang.idx2word[pred_id] == '<end>':
+                return result
+            dec_input = tf.expand_dims([pred_id], 1)
+        return result
 
 
 def accuracy(pred, label):
     if np.all(pred == label):
         return 1
     return 0
+
+
+def print_result(a):
+    result=''
+    for idx in a:
+        result += targ_lang.idx2word[idx] + ' '
+    print(result)
+
 
 if is_eval:
     buf_siz = len(input_tensor_val)
@@ -265,6 +286,10 @@ if is_eval:
         predict = evaluate(input_tensor_val[i], encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
         while len(predict) < max_length_targ:
             predict.append(0)
+        print("The predicted value is:")
+        print_result(predict)
+        print("Right answer is:")
+        print_result(target_tensor_val[i])
         acc = accuracy(predict, target_tensor_val[i])
         total_acc += acc
     total_acc = total_acc / buf_siz
