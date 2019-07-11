@@ -1,9 +1,7 @@
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
-import unicodedata
 import re
 import numpy as np
-import os
 
 tf.enable_eager_execution()
 
@@ -168,9 +166,8 @@ optimizer = tf.train.AdamOptimizer()
 
 
 def loss_function(real, pred):
-    mask = 1 - np.equal(real, 0)
     loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=real,
-                                                          logits=pred) * mask
+                                                          logits=pred)
     return tf.reduce_mean(loss)
 
 
@@ -251,7 +248,7 @@ def accuracy(pred, label):
 buf_siz = len(input_tensor_val)
 total_acc = 0
 for i in range(buf_siz):
-    predict=evaluate(input_tensor_val[i], encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
+    predict = evaluate(input_tensor_val[i], encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
     while len(predict) < max_length_targ:
         predict.append(0)
     acc = accuracy(predict, target_tensor_val[i])
