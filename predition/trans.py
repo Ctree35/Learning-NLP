@@ -205,7 +205,6 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
                                  encoder=encoder,
                                  decoder=decoder)
 
-beam_size=10
 
 def evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ):
     sentence = preprocess_sentence(sentence)
@@ -217,24 +216,42 @@ def evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
     enc_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=-1)
 
     # Beam Search
-    sequences = [[list(), 1.0, enc_hidden]]
+    beam_size = 10
+    sequences = [[list(), 0, enc_hidden]]
     sequences[0][0] += [targ_lang.word2idx['<start>']]
+    final = [[list(), 0, enc_hidden]]
     for t in range(max_length_targ):
+        if beam_size <= 0:
+            break
         all_candidates = list()
+        min_score = -1e10
+        min_local_score = -1e10
         for i in range(len(sequences)):
             seq, score, dec_hidden = sequences[i]
             if seq[-1] == targ_lang.word2idx['<end>']:
-                all_candidates.append(sequences[i])
+                final.append(sequences[i])
+                beam_size -= 1
                 continue
             dec_input = tf.expand_dims([seq[-1]], 1)
             pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
-            pred_id = tf.argmax(pred, axis=1)
-            candidate = [seq+[pred_id.numpy()[0]], score * (-np.log(pred[0][pred_id.numpy()[0]])), dec_hidden]
-            all_candidates.append(candidate)
+            for j in range(vocab_tar_size):
+                local_score = -np.log(pred[0][j].numpy() + 1e-12)
+                new_score = score + local_score
+                if new_score > 2 * min_score:
+                    continue
+                if local_score > 2 * min_local_score:
+                    continue
+                if new_score < min_score:
+                    min_score = new_score
+                if local_score < min_local_score:
+                    min_local_score = local_score
+                candidate = [seq + [j], new_score, dec_hidden]
+                all_candidates.append(candidate)
         ordered = sorted(all_candidates, key=lambda x: x[1])
-        sequences = ordered[:beam_size]
+        sequences = ordered[-beam_size:]
+    final = sorted(final, key=lambda x: x[1])
     result=''
-    for idx in sequences[0][0]:
+    for idx in final[-1][0]:
         if targ_lang.idx2word[idx] not in ['<start>', '<end>']:
             result += targ_lang.idx2word[idx] + ' '
     return result, sentence
@@ -267,8 +284,8 @@ def evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
 
 def translate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ):
     result, sentence = evaluate(sentence, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
-    print('Input: {}'.format(sentence))
-    print('Predicted translation: {}'.format(result))
+    # print('Input: {}'.format(sentence))
+    # print('Predicted translation: {}'.format(result))
     return result
 
 
@@ -310,8 +327,10 @@ for i in range(buf_siz):
     # can=tf.keras.preprocessing.sequence.pad_sequences([can],maxlen=max_length_targ,padding='post')
     # can=[targ_lang.idx2word[j] for j in can[0]]
     b_sen=sentence_bleu(ref, can)
-    print(b_sen)
+    # print(b_sen)
     total_score+=b_sen
+    if (i+1) % 100 == 0:
+        print("Eval progress: {}/{}, BLEU till now: {}".format(i+1, buf_siz, total_score/(i+1)))
 
 total_score=total_score / buf_siz
 print("Total BLEU scoce is: {}".format(total_score))
