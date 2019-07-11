@@ -171,6 +171,14 @@ def loss_function(real, pred):
     return tf.reduce_mean(loss)
 
 
+checkpoint_dir = './training_checkpoints'
+checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
+checkpoint = tf.train.Checkpoint(optimizer=optimizer,
+                                 encoder=encoder,
+                                 decoder=decoder)
+
+checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+
 # Train
 epochs = 10
 
@@ -192,6 +200,7 @@ for epoch in range(epochs):
             variables = encoder.variables + decoder.variables
             grad = tape.gradient(loss, variables)
             optimizer.apply_gradients(zip(grad, variables))
+    checkpoint.save(file_prefix = checkpoint_prefix)
     print('Epoch {} Loss {:.4f}'.format(epoch + 1,
                                         total_loss / num_batch))
 
