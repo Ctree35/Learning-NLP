@@ -2,6 +2,7 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 import re
 import numpy as np
+import os
 
 tf.enable_eager_execution()
 
@@ -207,6 +208,7 @@ for epoch in range(epochs):
 
 # Evaluation
 def evaluate(question, encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ):
+    question = tf.expand_dims(question, axis=0)
     enc_out, enc_hidden_fw, enc_hidden_bw = encoder(question)
     enc_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=-1)
 
@@ -249,7 +251,7 @@ def evaluate(question, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
 
 
 def accuracy(pred, label):
-    if pred == label:
+    if np.all(pred == label):
         return 1
     return 0
 
