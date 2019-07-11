@@ -33,7 +33,7 @@ def preprocess_answer(w):
     # Delete useless symbols
     w = re.sub(r'answer\(a,', '', w)
     w = re.sub(r'\)\)\.', '', w)
-    w = re.sub(r"'", '', w)
+    # w = re.sub(r"'", '', w)
     # Deal with typos
     w = re.sub(r'\bhamsphire\b', 'hampshire', w)
     w = re.sub(r'\bmississsippi\b', 'mississippi', w)
@@ -42,6 +42,8 @@ def preprocess_answer(w):
     w = re.sub(r',', ' , ', w)
     w = re.sub(r'\(', ' ( ', w)
     w = re.sub(r'\)', ' ) ', w)
+    w = re.sub(r'\\\+', ' \\+ ', w)
+    w = re.sub(r"'", " ' ", w)
     w = re.sub(r'\s+', ' ', w)
     w = w.strip()
     w = '<start> ' + w + ' <end>'
