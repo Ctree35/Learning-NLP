@@ -107,7 +107,7 @@ input_tensor, target_tensor, inp_lang, targ_lang, max_length_inp, max_length_tar
 input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = train_test_split(input_tensor, target_tensor, test_size=0.1)
 
 # Config
-is_training = True
+is_training = False
 is_eval = True
 use_beam = False
 buffer_size=len(input_tensor_train)
@@ -255,7 +255,7 @@ def evaluate(question, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
     else:
         dec_hidden = enc_hidden
         dec_input = tf.expand_dims([targ_lang.word2idx['<start>']], 1)
-        result=list()
+        result=[targ_lang.word2idx['<start>']]
         for t in range(max_length_targ):
             pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
             pred_id = tf.argmax(pred[0]).numpy()
@@ -276,6 +276,9 @@ def print_result(a):
     result=''
     for idx in a:
         result += targ_lang.idx2word[idx] + ' '
+        if targ_lang.idx2word[idx] == '<end>':
+            print(result)
+            return
     print(result)
 
 
