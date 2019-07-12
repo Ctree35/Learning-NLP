@@ -183,31 +183,42 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
 
 checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
+
+def calc_batch_acc(pred, label):
+    index = np.where(label == targ_lang.word2idx['<end>'])[1]
+    acc = [np.all(pred[i][:index[i]] == label[i][:index[i]]) for i in range(len(pred))]
+    return np.mean(acc)
+
+
+
 # Train
 if is_training:
     epochs = 256
 
     for epoch in range(epochs):
         total_loss = 0
+        train_acc = 0
         for (batch, (inp, targ)) in enumerate(dataset):
             loss = 0
             with tf.GradientTape() as tape:
                 enc_out, enc_hidden_fw, enc_hidden_bw = encoder(inp)
                 dec_hidden = tf.concat([enc_hidden_fw, enc_hidden_bw], axis=-1)
                 dec_input = tf.expand_dims([targ_lang.word2idx['<start>']] * batch_size, 1)
-
+                predicted = dec_input
                 for t in range(1, max_length_targ):
                     pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
                     loss += loss_function(targ[:, t], pred)
                     dec_input = tf.expand_dims(tf.argmax(pred, axis=1), 1)
+                    predicted = tf.concat([predicted, tf.cast(dec_input, tf.int32)], axis=1)
+                batch_acc = calc_batch_acc(predicted.numpy(), targ.numpy())
                 batch_loss = loss / max_length_targ
                 total_loss += batch_loss
                 variables = encoder.variables + decoder.variables
                 grad = tape.gradient(loss, variables)
                 optimizer.apply_gradients(zip(grad, variables))
         checkpoint.save(file_prefix=checkpoint_prefix)
-        print('Epoch {} Loss {:.4f}'.format(epoch + 1,
-                                            total_loss / num_batch))
+        print('Epoch {} Loss {:.4f} Accuracy {:4f}'.format(epoch + 1,
+                                            total_loss / num_batch, batch_acc))
 
 
 
@@ -268,8 +279,8 @@ def evaluate(question, encoder, decoder, inp_lang, targ_lang, max_length_inp, ma
         return result
 
 
-def accuracy(pred, label):
-    if np.all(pred == label):
+def accuracy(pred, label, length):
+    if np.all(pred[:length] == label[:length]):
         return 1
     return 0
 
@@ -284,18 +295,25 @@ def print_result(a):
     print(result)
 
 
+def remove_symbol(w):
+    result = []
+    for idx in w:
+        if targ_lang.idx2word[idx] not in ['<start>', '<end>', '<pad>']:
+            result.append(idx)
+    return result
+
 def calc_acc():
     buf_siz = len(input_tensor_val)
     total_acc = 0
     for i in range(buf_siz):
         predict = evaluate(input_tensor_val[i], encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
-        while len(predict) < max_length_targ:
-            predict.append(0)
         print("The predicted value is:")
         print_result(predict)
         print("Right answer is:")
         print_result(target_tensor_val[i])
-        acc = accuracy(predict, target_tensor_val[i])
+        predict = remove_symbol(predict)
+        label = remove_symbol(target_tensor_val[i])
+        acc = accuracy(predict, label, len(label))
         total_acc += acc
     total_acc = total_acc / buf_siz
     print("Total Accuracy is: {:.4f}".format(total_acc))
