@@ -181,8 +181,6 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
                                  decoder=decoder)
 
 
-
-
 def print_result(a):
     result=''
     for idx in a:
@@ -322,7 +320,7 @@ def calc_acc():
         acc = accuracy(predict, label, len(label))
         total_acc += acc
     total_acc = total_acc / buf_siz
-    # print("Total Accuracy is: {:.4f}".format(total_acc))
+    print("This Ckpt Accuracy is: {:.4f}".format(total_acc))
     return total_acc
 
 
@@ -333,6 +331,7 @@ for i in range(epochs):
     f = open("./teacher_forcing_ckpts/checkpoint", 'r+')
     lines = f.read()
     lines = re.sub(r'ckpt-[0-9]+', 'ckpt-'+str(i+1), lines)
+    print(lines)
     f.seek(0)
     f.write(lines)
     f.close()
