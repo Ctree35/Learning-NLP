@@ -184,9 +184,24 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
 checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
 
+def print_result(a):
+    result=''
+    for idx in a:
+        result += targ_lang.idx2word[idx] + ' '
+        if targ_lang.idx2word[idx] == '<end>':
+            print(result)
+            return
+    print(result)
+
+
 def calc_batch_acc(pred, label):
     index = np.where(label == targ_lang.word2idx['<end>'])[1]
     acc = [np.all(pred[i][:index[i]] == label[i][:index[i]]) for i in range(len(pred))]
+    idx = np.random.choice(range(batch_size))
+    print("One Predicted Result: ")
+    print_result(pred[idx])
+    print("Right Answer is:")
+    print_result(label[idx])
     return np.mean(acc)
 
 
@@ -284,15 +299,6 @@ def accuracy(pred, label, length):
         return 1
     return 0
 
-
-def print_result(a):
-    result=''
-    for idx in a:
-        result += targ_lang.idx2word[idx] + ' '
-        if targ_lang.idx2word[idx] == '<end>':
-            print(result)
-            return
-    print(result)
 
 
 def remove_symbol(w):
