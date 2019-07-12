@@ -327,7 +327,7 @@ def calc_acc():
 epochs = 256
 max_acc = 0
 right_epoch = 0
-for i in range(200, epochs):
+for i in range(100, epochs):
     f = open("./teacher_forcing_ckpts/checkpoint", 'r+')
     lines = f.read()
     lines = re.sub(r'ckpt-[0-9]+', 'ckpt-'+str(i+1), lines)
