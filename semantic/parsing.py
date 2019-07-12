@@ -143,7 +143,8 @@ class Decoder(tf.keras.Model):
         self.dec_units = dec_units
         self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim)
         self.gru = tf.keras.layers.GRU(dec_units, return_sequences=True, return_state=True)
-        self.fc = tf.keras.layers.Dense(vocab_size, activation=tf.nn.relu)
+        # self.fc = tf.keras.layers.Dense(vocab_size, activation=tf.nn.relu)
+        self.fc = tf.keras.layers.Dense(vocab_size)
 
         self.W1 = tf.keras.layers.Dense(self.dec_units)
         self.W2 = tf.keras.layers.Dense(self.dec_units)
@@ -165,17 +166,16 @@ class Decoder(tf.keras.Model):
 
 encoder=Encoder(vocab_inp_size,embedding_dim,units,batch_size)
 decoder=Decoder(vocab_tar_size,embedding_dim,2 * units,batch_size)
-optimizer = tf.train.AdamOptimizer()
+optimizer = tf.keras.optimizers.Adam()
 
 
 def loss_function(real, pred):
     mask = 1 - np.equal(real, 0)
-    loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=real,
-                                                          logits=pred) * mask
+    loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=real, logits=pred) * mask
     return tf.reduce_mean(loss)
 
 
-checkpoint_dir = './training_checkpoints'
+checkpoint_dir = './teacher_forcing_ckpts'
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
 checkpoint = tf.train.Checkpoint(optimizer=optimizer,
                                  encoder=encoder,
@@ -223,8 +223,9 @@ if is_training:
                 for t in range(1, max_length_targ):
                     pred, dec_hidden = decoder(dec_input, dec_hidden, enc_out)
                     loss += loss_function(targ[:, t], pred)
-                    dec_input = tf.expand_dims(tf.argmax(pred, axis=1), 1)
-                    predicted = tf.concat([predicted, tf.cast(dec_input, tf.int32)], axis=1)
+                    pred_id = tf.expand_dims(tf.argmax(pred, axis=1), 1)
+                    predicted = tf.concat([predicted, tf.cast(pred_id, tf.int32)], axis=1)
+                    dec_input = tf.expand_dims(targ[:, t], 1)
                 batch_acc = calc_batch_acc(predicted.numpy(), targ.numpy())
                 batch_loss = loss / max_length_targ
                 total_loss += batch_loss
