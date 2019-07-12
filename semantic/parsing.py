@@ -107,8 +107,7 @@ input_tensor, target_tensor, inp_lang, targ_lang, max_length_inp, max_length_tar
 input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = train_test_split(input_tensor, target_tensor, test_size=0.1)
 
 # Config
-is_training = True
-is_eval = True
+is_training = False
 use_beam = False
 buffer_size=len(input_tensor_train)
 batch_size=64
@@ -181,7 +180,7 @@ checkpoint = tf.train.Checkpoint(optimizer=optimizer,
                                  encoder=encoder,
                                  decoder=decoder)
 
-checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+
 
 
 def print_result(a):
@@ -227,14 +226,14 @@ if is_training:
                     predicted = tf.concat([predicted, tf.cast(pred_id, tf.int32)], axis=1)
                     dec_input = tf.expand_dims(targ[:, t], 1)
                 batch_acc = calc_batch_acc(predicted.numpy(), targ.numpy())
-                batch_loss = loss / max_length_targ
+                batch_loss = loss
                 total_loss += batch_loss
                 variables = encoder.variables + decoder.variables
                 grad = tape.gradient(loss, variables)
                 optimizer.apply_gradients(zip(grad, variables))
+                print("Accuracy of batch {}/{} is: {:4f}".format(batch, num_batch, batch_acc))
         checkpoint.save(file_prefix=checkpoint_prefix)
-        print('Epoch {} Loss {:.4f} Accuracy {:4f}'.format(epoch + 1,
-                                            total_loss / num_batch, batch_acc))
+        print('Epoch {} Loss {:.4f}'.format(epoch + 1, total_loss / num_batch))
 
 
 
@@ -314,17 +313,34 @@ def calc_acc():
     total_acc = 0
     for i in range(buf_siz):
         predict = evaluate(input_tensor_val[i], encoder, decoder, inp_lang, targ_lang, max_length_inp, max_length_targ)
-        print("The predicted value is:")
-        print_result(predict)
-        print("Right answer is:")
-        print_result(target_tensor_val[i])
+        # print("The predicted value is:")
+        # print_result(predict)
+        # print("Right answer is:")
+        # print_result(target_tensor_val[i])
         predict = remove_symbol(predict)
         label = remove_symbol(target_tensor_val[i])
         acc = accuracy(predict, label, len(label))
         total_acc += acc
     total_acc = total_acc / buf_siz
-    print("Total Accuracy is: {:.4f}".format(total_acc))
+    # print("Total Accuracy is: {:.4f}".format(total_acc))
+    return total_acc
 
 
-if is_eval:
-    calc_acc()
+epochs = 256
+max_acc = 0
+right_epoch = 0
+for i in range(epochs):
+    f = open("./teacher_forcing_ckpts/checkpoint", 'r+')
+    lines = f.read()
+    lines = re.sub(r'ckpt-[0-9]+', 'ckpt-'+str(i+1), lines)
+    f.seek(0)
+    f.write(lines)
+    f.close()
+    checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+    acc = calc_acc()
+    if acc > max_acc:
+        max_acc = acc
+        right_epoch = i
+
+print("The best accuracy is: {} in epoch {}/{}".format(max_acc, right_epoch, epochs))
+
