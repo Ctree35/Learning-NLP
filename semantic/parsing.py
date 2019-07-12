@@ -171,7 +171,7 @@ optimizer = tf.keras.optimizers.Adam()
 
 def loss_function(real, pred):
     mask = 1 - np.equal(real, 0)
-    loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=real, logits=pred) * mask
+    loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=real, logits=pred) * mask
     return tf.reduce_mean(loss)
 
 
